@@ -1,8 +1,9 @@
 ;========================================================
-; Voltímetro rudimentario 000..500 (centésimas de V)
+; Voltímetro 0.00 .. 5.00 (muestra 000..500 con DP fijo en el primer display)
 ; ADC: 8 bits (ADRESH, ADFM=0), AN0 (RA0)
 ; Displays: PORTD (segmentos, cátodo común)
 ;           RB7=unidades, RB6=decenas, RB5=centenas (activos en 0)
+; DP fijo en el display de centenas (izquierdo) -> X.XX
 ; PIC16F887 @ 4 MHz
 ;========================================================
         LIST    P=16F887
@@ -29,7 +30,7 @@ DIGIT           EQU     0x27    ; dígito actual 0..9
 
 CV_H            EQU     0x28    ; CV = 0..500 (16-bit)
 CV_L            EQU     0x29
-TEN_H           EQU     0x2A    ; 10*N (16-bit) para la fórmula
+TEN_H           EQU     0x2A    ; 10*N (16-bit)
 TEN_L           EQU     0x2B
 
 ;------------------------------ Constantes ----------------------------
@@ -45,7 +46,7 @@ MASK_RB5_ON     EQU     0xC0    ; RB5 bajo (centenas)
             ORG     0x0004
             GOTO    ISR_TMR0
 
-;--------------------- Tabla 7 segmentos (cátodo común) ----------------
+;--------------------- Tablas 7-seg (cátodo común) --------------------
 TABLA_DISPLAY:
     ADDWF   PCL, F
     RETLW   B'00111111' ; 0
@@ -59,6 +60,20 @@ TABLA_DISPLAY:
     RETLW   B'01111111' ; 8
     RETLW   B'01101111' ; 9
 
+; Mismos patrones con punto decimal (bit7=1) para el PRIMER display
+TABLA_DISPLAY_DP:
+    ADDWF   PCL, F
+    RETLW   B'10111111' ; 0.
+    RETLW   B'10000110' ; 1.
+    RETLW   B'11011011' ; 2.
+    RETLW   B'11001111' ; 3.
+    RETLW   B'11100110' ; 4.
+    RETLW   B'11101101' ; 5.
+    RETLW   B'11111101' ; 6.
+    RETLW   B'10000111' ; 7.
+    RETLW   B'11111111' ; 8.
+    RETLW   B'11101111' ; 9.
+
 ;=============================== Inicio ===============================
 INICIO:
     ; Limpiar puertos
@@ -70,7 +85,7 @@ INICIO:
     BANKSEL ANSEL
     MOVLW   b'00000001'         ; AN0 analógico, resto digital
     MOVWF   ANSEL
-    CLRF    ANSELH              ; PORTB todo digital
+    CLRF    ANSELH
 
     ; Deshabilitar comparadores
     BANKSEL CM1CON0
@@ -139,7 +154,6 @@ WAIT_ADC:
 
     ; 4) Escalar N(0..255) -> CV(0..500) con:
     ;    CV = (N<<1) - ((10*N + 128)>>8)    [≈ N*500/255 con redondeo]
-    ;    - No requiere saturación: para N=0..255, CV siempre 0..500.
     ;
     ; CV = 2*N (16 bits)
     CLRF    CV_H
@@ -248,15 +262,30 @@ ISR_TMR0:
     MOVLW   ALL_OFF_B
     MOVWF   PORTB
 
-    ; Poner segmentos del dígito actual
-    ; INDEX=0->NUM0 (unid), 1->NUM1 (dec), 2->NUM2 (cent)
+    ; Seleccionar valor del dígito actual
     BANKSEL INDEX
     MOVLW   NUM0
     ADDWF   INDEX, W
     MOVWF   FSR
     MOVF    INDF, W
     ANDLW   0x0F
+    MOVWF   DIGIT
+
+    ; Si INDEX==2 (centenas/izquierdo) -> usar tabla con DP
+    MOVF    INDEX, W
+    XORLW   0x02
+    BTFSS   STATUS, Z
+    GOTO    SIN_DP
+CON_DP:
+    MOVF    DIGIT, W
+    CALL    TABLA_DISPLAY_DP
+    GOTO    WRITE_SEG
+
+SIN_DP:
+    MOVF    DIGIT, W
     CALL    TABLA_DISPLAY
+
+WRITE_SEG:
     BANKSEL PORTD
     MOVWF   PORTD
 
@@ -289,7 +318,7 @@ DIG_MASK_TABLE:
     ADDWF   PCL, F
     RETLW   MASK_RB7_ON     ; 0 -> RB7 bajo (unidades)
     RETLW   MASK_RB6_ON     ; 1 -> RB6 bajo (decenas)
-    RETLW   MASK_RB5_ON     ; 2 -> RB5 bajo (centenas)
+    RETLW   MASK_RB5_ON     ; 2 -> RB5 bajo (centenas + DP)
 
 ;====================== Subrutinas de apoyo ==========================
 ; ~10 us @ 4 MHz (aprox)
@@ -303,3 +332,4 @@ ADLY_L:
     RETURN
 
             END
+  
