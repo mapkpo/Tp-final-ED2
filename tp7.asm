@@ -153,7 +153,7 @@ WAIT_ADC:
     MOVWF   ADC8               ; N = ADRESH
 
     ; 4) Escalar N(0..255) -> CV(0..500) con:
-    ;    CV = (N<<1) - ((10*N + 128)>>8)    [≈ N*500/255 con redondeo]
+    ;    CV = (N<<1) - ((10*N + 128)>>8)    [? N*500/255 con redondeo]
     ;
     ; CV = 2*N (16 bits)
     CLRF    CV_H
