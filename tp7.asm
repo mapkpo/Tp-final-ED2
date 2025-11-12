@@ -23,15 +23,18 @@ NUM0            EQU     0x21    ; unidades
 NUM1            EQU     0x22    ; decenas
 NUM2            EQU     0x23    ; centenas
 
-ADC8            EQU     0x24    ; N = ADRESH (0..255)
+ADC8            EQU     0x24
 TMP             EQU     0x25
 C1              EQU     0x26
-DIGIT           EQU     0x27    ; dígito actual 0..9
+DIGIT           EQU     0x27
+
+SUM_H          EQU     0x2C    ; suma de 8 muestras (MSB)
+SUM_L          EQU     0x2D    ; suma de 8 muestras (LSB)
 
 CV_H            EQU     0x28    ; CV = 0..500 (16-bit)
 CV_L            EQU     0x29
 TEN_H           EQU     0x2A    ; 10*N (16-bit)
-TEN_L           EQU     0x2B
+TEN_L            EQU     0x2B
 
 ;------------------------------ Constantes ----------------------------
 ALL_OFF_B       EQU     0xE0    ; RB7=1, RB6=1, RB5=1 (apagados)
@@ -94,22 +97,40 @@ INICIO:
 
     ; ---------- TRIS ----------
     BANKSEL TRISD
-    CLRF    TRISD               ; PORTD salidas (segmentos)
+    CLRF    TRISD
 
     BANKSEL TRISB
-    MOVLW   b'00011111'         ; RB5..RB7 salidas; RB0..RB4 entradas
+    MOVLW   b'00011111'
     MOVWF   TRISB
 
+    BANKSEL TRISC
+    BCF     TRISC,6            ; RC6 = TX (salida)
+    BSF     TRISC,7            ; RC7 = RX (entrada)
+
     BANKSEL TRISA
-    MOVLW   b'11111111'         ; RA0 entrada (AN0)
+    MOVLW   b'11111111'
     MOVWF   TRISA
+
+    ; ---------- UART TX (19200 bps, Fosc=4 MHz) ----------
+    BANKSEL SPBRG
+    CLRF    SPBRGH
+    MOVLW   .12
+    MOVWF   SPBRG
+
+    BANKSEL TXSTA
+    MOVLW   b'00100100'        ; BRGH=1, TXEN=1, modo async
+    MOVWF   TXSTA
+
+    BANKSEL RCSTA
+    MOVLW   b'10000000'        ; SPEN=1
+    MOVWF   RCSTA
 
     ; ---------- Timer0 (multiplex) ----------
     BANKSEL OPTION_REG
-    MOVLW   b'00000111'         ; PS=1:256, asignado a TMR0
+    MOVLW   b'00000101'         ; PS=1:64
     MOVWF   OPTION_REG
     BANKSEL TMR0
-    MOVLW   D'237'              ; ~4.864 ms @4 MHz
+    MOVLW   D'206'              ; ~1.5 ms
     MOVWF   TMR0
 
     ; ---------- ADC ----------
@@ -134,23 +155,50 @@ INICIO:
 
 ;========================= Bucle principal ============================
 MAIN_LOOP:
-    ; 1) Pequeño tiempo de adquisición
-    CALL    ACQ_DELAY_10US
+    ; Promediar 8 conversiones para suavizar la lectura
+    BANKSEL SUM_L
+    CLRF    SUM_L
+    CLRF    SUM_H
+    MOVLW   .8
+    MOVWF   TMP
 
-    ; 2) Disparar conversión
+SAMPLE_ADC:
+    CALL    ACQ_DELAY_10US
     BANKSEL ADCON0
     BSF     ADCON0, GO_DONE
 
 WAIT_ADC:
-    BANKSEL ADCON0
     BTFSC   ADCON0, GO_DONE
     GOTO    WAIT_ADC
 
-    ; 3) Leer ADRESH (8 bits 0..255)
     BANKSEL ADRESH
     MOVF    ADRESH, W
+    BANKSEL SUM_L
+    ADDWF   SUM_L, F
+    BTFSC   STATUS, C
+    INCF    SUM_H, F
+
+    DECFSZ  TMP, F
+    GOTO    SAMPLE_ADC
+
+    ; promedio = suma / 8
+    BCF     STATUS, C
+    RRF     SUM_H, F
+    RRF     SUM_L, F
+    BCF     STATUS, C
+    RRF     SUM_H, F
+    RRF     SUM_L, F
+    BCF     STATUS, C
+    RRF     SUM_H, F
+    RRF     SUM_L, F
+
+    MOVF    SUM_L, W
     BANKSEL ADC8
-    MOVWF   ADC8               ; N = ADRESH
+    MOVWF   ADC8
+
+    ; enviar la muestra promedio por UART
+    MOVF    ADC8, W
+    CALL    UART_SEND
 
     ; 4) Escalar N(0..255) -> CV(0..500) con:
     ;    CV = (N<<1) - ((10*N + 128)>>8)    [? N*500/255 con redondeo]
@@ -244,16 +292,14 @@ TENS_FIX:
 
 ;===================== Interrupción Timer0 (multiplex) =====================
 ISR_TMR0:
-    ; Guardar contexto
     MOVWF   W_TEMP
     SWAPF   STATUS, W
     MOVWF   STATUS_TEMP
     MOVF    PCLATH, W
     MOVWF   PCLATH_TEMP
-
-    ; Recargar TMR0 y limpiar flag
+    ; Recargar TMR0
     BANKSEL TMR0
-    MOVLW   D'237'
+    MOVLW   D'206'
     MOVWF   TMR0
     BCF     INTCON, TMR0IF
 
@@ -284,6 +330,7 @@ CON_DP:
 SIN_DP:
     MOVF    DIGIT, W
     CALL    TABLA_DISPLAY
+    GOTO    WRITE_SEG
 
 WRITE_SEG:
     BANKSEL PORTD
@@ -316,9 +363,9 @@ WRITE_SEG:
 ; --- Devuelve en W la máscara de PORTB según INDEX (0..2) ---
 DIG_MASK_TABLE:
     ADDWF   PCL, F
-    RETLW   MASK_RB7_ON     ; 0 -> RB7 bajo (unidades)
-    RETLW   MASK_RB6_ON     ; 1 -> RB6 bajo (decenas)
-    RETLW   MASK_RB5_ON     ; 2 -> RB5 bajo (centenas + DP)
+    RETLW   MASK_RB5_ON     ; centenas
+    RETLW   MASK_RB6_ON     ; decenas
+    RETLW   MASK_RB7_ON     ; unidades
 
 ;====================== Subrutinas de apoyo ==========================
 ; ~10 us @ 4 MHz (aprox)
@@ -331,5 +378,13 @@ ADLY_L:
     GOTO    ADLY_L
     RETURN
 
+UART_SEND:
+    BANKSEL PIR1
+WAIT_TX:
+    BTFSS   PIR1, TXIF
+    GOTO    WAIT_TX
+    BANKSEL TXREG
+    MOVWF   TXREG
+    RETURN
+
             END
-  
