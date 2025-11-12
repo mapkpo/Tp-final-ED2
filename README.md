@@ -52,6 +52,9 @@ Según las pruebas podemos muestrear hasta señales de 150Hz sin perder tanta re
 <img width="1104" height="682" alt="Medición de frecuencia " src="https://github.com/user-attachments/assets/57c018d8-fdd3-4161-bc1a-2f2cdfe2c968" />
 <img width="1104" height="682" alt="Medición de voltaje medio" src="https://github.com/user-attachments/assets/edc4a743-f881-40b0-97af-7ce8d637aa41" />
 
+## Armado final 
+![Imagen de WhatsApp 2025-11-12 a las 18 22 41_81741e62](https://github.com/user-attachments/assets/5c959fda-a5e4-4bd0-bbcc-94134d1cce2e)
+![Imagen de WhatsApp 2025-11-12 a las 18 22 41_ee5990a5](https://github.com/user-attachments/assets/f33dc53d-e946-4bf5-8df7-cf563b9606d3)
 
 
 
