@@ -44,6 +44,11 @@ muestreando una señal senoidal de 1hz
 ## Carcasa
 <img width="1522" height="759" alt="image" src="https://github.com/user-attachments/assets/6d3252b7-9e14-4e35-bb37-a8e8a09f5929" />
 
+## Mediciones
+Según las pruebas podemos muestrear hasta señales de 150Hz sin perder tanta resolucion de manera práctica. Obtenemos en promedio un error de medición de 16% en la frecuencia y 5% en voltaje comparado a un osciloscopio UTD2102CEX+ usando una fuente regulada y una generador de señales XR2206 con un divisor resistivo para estar en el rango de 0-5v que acepta el pic.
+
+<img width="1104" height="682" alt="Medición de frecuencia " src="https://github.com/user-attachments/assets/57c018d8-fdd3-4161-bc1a-2f2cdfe2c968" />
+<img width="1104" height="682" alt="Medición de voltaje medio" src="https://github.com/user-attachments/assets/edc4a743-f881-40b0-97af-7ce8d637aa41" />
 
 
 
