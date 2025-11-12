@@ -2,6 +2,8 @@
 -----------------------------
 Profesor del práctico Marcos Javier Blasco, Electrónica Digital 2, año 2025.
 
+Grupo 4: Potinski Mijail Andrés, Concodi Carlos Javier, Sorbera Josué Emanuel
+
 Trabajo práctico final, proyecto Voltímetro-Osciloscopio con Pic16f887
 
 Idea: utilizar el adc del pic para medir un voltaje y mostrarlo en 3 displays, y usando la conexion serial
