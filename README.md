@@ -39,6 +39,11 @@ adaptador usb a ttl
 muestreando una señal senoidal de 1hz
 <img width="2560" height="1034" alt="1hz" src="https://github.com/user-attachments/assets/15b328b4-54b4-4e3f-bd1e-836b51ee6b46" />
 
+## Demostracion
+https://github.com/user-attachments/assets/7aee67dd-e67b-46ca-833e-efc7031d7a3b
+
+
+
 ## Board
 ![Imagen de WhatsApp 2025-11-12 a las 15 31 38_594f5b9c](https://github.com/user-attachments/assets/339b00b3-582d-424f-9a9e-6991144a5e4c)
 ![Imagen de WhatsApp 2025-11-12 a las 15 31 39_3f975555](https://github.com/user-attachments/assets/1691bd16-478d-4508-a62b-9b5e129493a6)
